@@ -3,6 +3,7 @@ import numpy as np
 from common.io.writeToa import writeToa
 from common.plot.plotMat2D import plotMat2D
 from common.plot.plotF import plotF
+from common.src.auxFunc import getIndexBand
 
 class detectionPhase(initIsm):
 
@@ -21,8 +22,8 @@ class detectionPhase(initIsm):
         # -------------------------------------------------------------------------------
         self.logger.info("EODP-ALG-ISM-2010: Irradiances to Photons")
         area_pix = self.ismConfig.pix_size * self.ismConfig.pix_size # [m2]
-        toa = self.irrad2Phot(toa, area_pix, self.ismConfig.t_int, self.ismConfig.wv[int(band[-1])])
-
+        #toa = self.irrad2Phot(toa, area_pix, self.ismConfig.t_int, self.ismConfig.wv[int(band[-1])])
+        toa = self.irrad2Phot(toa, area_pix, self.ismConfig.t_int, self.ismConfig.wv[getIndexBand(band)],)
         self.logger.debug("TOA [0,0] " +str(toa[0,0]) + " [ph]")
 
         # Photon to electrons conversion
@@ -119,10 +120,9 @@ class detectionPhase(initIsm):
         :return: toa in electrons
         """
 
-        # if saturated (more electrons than the allowed) , put to full well capacity,
         FWC = self.ismConfig.FWC
         toae = toa* QE
-        #toae = np.minimum(toae, FWC)
+        toae = np.minimum(toae, FWC)
 
         return toae
 
@@ -167,7 +167,8 @@ class detectionPhase(initIsm):
         :return: TOA in [e-] with dark signal
         """
 
-        DSNU = np.abs(np.random.standard_normal())*kdsnu
+        #DSNU = np.abs(np.random.standard_normal())*kdsnu
+        DSNU = np.abs(np.random.standard_normal(toa.shape[1])) * kdsnu
         Sd = ds_A_coeff * (T/Tref)**3 * np.exp(-ds_B_coeff * (1/T - 1/Tref))
         # DSNU: readout of detector wen no signal
         DS_act = Sd * (1+DSNU)
