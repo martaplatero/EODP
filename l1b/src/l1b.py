@@ -82,3 +82,28 @@ class l1b(initL1b):
     def plotL1bToa(self, toa_l1b, outputdir, band):
         #TODO
         a=1 # dummy
+        # Central ALT line cut to avoid edge effects
+        mid_alt = toa_l1b.shape[0] // 2
+        profile = toa_l1b[mid_alt, :]
+        act_pixels = range(len(profile))
+
+        fig, ax = plt.subplots(figsize=(10, 5.5))
+
+        # Red curve with 'TOA L1B' label
+        ax.plot(act_pixels, profile, color='#d62728', linewidth=1.5, label='TOA L1B')
+
+        # Titles and axis formatting
+        ax.set_title(f"Equalization and restoration for {band}", fontsize=13)
+        ax.set_xlabel("ACT pixel [-]", fontsize=11)
+        ax.set_ylabel("TOA [mW/m2/sr]", fontsize=11)
+
+        # Grid and legend in upper right
+        ax.grid(True, which='both', linestyle='-', linewidth=0.5, color='gray', alpha=0.6)
+        ax.legend(loc='upper right', fontsize=8, frameon=True)
+
+        fig_path = os.path.join(outputdir, f"l1b_toa_{band}.png")
+        plt.tight_layout()
+        plt.savefig(fig_path, dpi=300)
+        plt.close(fig)
+
+        self.logger.info(f"Figure saved: {fig_path}")
