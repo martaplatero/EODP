@@ -1,4 +1,3 @@
-
 from ism.src.initIsm import initIsm
 import numpy as np
 from common.plot.plotMat2D import plotMat2D
@@ -55,7 +54,9 @@ class videoChainPhase(initIsm):
         :param gain_adc: Gain of the Analog-to-digital conversion [-]
         :return: output toa in [V]
         """
-        #TODO
+
+        toa = toa * OCF * gain_adc
+
         return toa
 
     def digitisation(self, toa, bit_depth, min_voltage, max_voltage):
@@ -67,6 +68,8 @@ class videoChainPhase(initIsm):
         :param max_voltage: maximum voltage
         :return: toa in digital counts
         """
-        #TODO
-        return toa_dn
 
+        conversion_factor_dig = (max_voltage - min_voltage)*(2**bit_depth - 1)
+        toa_dn = np.round(toa / conversion_factor_dig)
+
+        return toa_dn

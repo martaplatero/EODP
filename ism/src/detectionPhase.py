@@ -1,4 +1,3 @@
-
 from ism.src.initIsm import initIsm
 import numpy as np
 from common.io.writeToa import writeToa
@@ -104,7 +103,12 @@ class detectionPhase(initIsm):
         :param wv: Central wavelength of the band [m]
         :return: Toa in photons
         """
-        #TODO
+
+        toa = toa/1000 # to convert from mw to W
+        E_in = toa*area_pix*tint
+        E_photon = (self.constants.h_planck*self.constants.speed_light)/(wv)
+        toa_ph = E_in/E_photon # number of photons
+
         return toa_ph
 
     def phot2Electr(self, toa, QE):
@@ -114,7 +118,12 @@ class detectionPhase(initIsm):
         :param QE: Quantum efficiency [e-/ph]
         :return: toa in electrons
         """
-        #TODO
+
+        # if saturated (more electrons than the allowed) , put to full well capacity,
+        FWC = self.ismConfig.FWC
+        toae = toa* QE
+        #toae = np.minimum(toae, FWC)
+
         return toae
 
     def badDeadPixels(self, toa,bad_pix,dead_pix,bad_pix_red,dead_pix_red):
@@ -127,19 +136,24 @@ class detectionPhase(initIsm):
         :param dead_pix_red: Reduction in the quantum efficiency for the dead pixels [-, over 1]
         :return: toa in e- including bad & dead pixels
         """
-        #TODO
+        toa[:, 5] = toa[:, 5]*(1-bad_pix_red)
         return toa
 
     def prnu(self, toa, kprnu):
+
+        # the input to this is ism_toa_e_VNIR-3.nc
+
         """
         Adding the PRNU effect
         :param toa: TOA pre-PRNU [e-]
         :param kprnu: multiplicative factor to the standard normal deviation for the PRNU
         :return: TOA after adding PRNU [e-]
         """
-        #TODO
-        return toa
 
+        prnu = np.random.standard_normal(toa.shape[1])*kprnu
+        toa = toa * ( prnu + 1 )
+
+        return toa
 
     def darkSignal(self, toa, kdsnu, T, Tref, ds_A_coeff, ds_B_coeff):
         """
@@ -152,5 +166,12 @@ class detectionPhase(initIsm):
         :param ds_B_coeff: Empirical parameter of the model 6040 K
         :return: TOA in [e-] with dark signal
         """
-        #TODO
+
+        DSNU = np.abs(np.random.standard_normal())*kdsnu
+        Sd = ds_A_coeff * (T/Tref)**3 * np.exp(-ds_B_coeff * (1/T - 1/Tref))
+        # DSNU: readout of detector wen no signal
+        DS_act = Sd * (1+DSNU)
+
+        toa = toa + DS_act
+
         return toa

@@ -72,6 +72,15 @@ class mtf:
         Hsys = Hdiff*Hdefoc*Hwfe*Hdet*Hsmear*Hmotion
         print(Hsys)
 
+        if self.ismConfig.save_mtfs:
+            writeMat(directory, f"Hdiff_{band}", Hdiff)
+            writeMat(directory, f"Hdefoc_{band}", Hdefoc)
+            writeMat(directory, f"Hwfe_{band}", Hwfe)
+            writeMat(directory, f"Hdet_{band}", Hdet)
+            writeMat(directory, f"Hsmear_{band}", Hsmear)
+            writeMat(directory, f"Hmotion_{band}", Hmotion)
+            writeMat(directory, f"Hsys_{band}", Hsys)
+
         # Plot cuts ACT/ALT of the MTF
         self.plotMtf(Hdiff, Hdefoc, Hwfe, Hdet, Hsmear, Hmotion, Hsys, nlines, ncolumns, fnAct, fnAlt, directory, band)
 
@@ -219,5 +228,90 @@ class mtf:
         :return: N/A
         """
         #TODO
+        # tenemos que implementarlo luego para replicar una imagen que es simetrica. una imagen que esta en el
+        # documento grande. Figure 7-52 en pg 65. use the fn2D to cut the 100x150 through the 150.
+        # para el report cross validation de sus outputs con los nuestros. validar los mtf. irsf toa and irsf optical.
+        # all out outputs and hers. at the plot of the system mtf and explain what are the dominating effects. the two dimensining
+        # mtf of out system.
+
+
+        os.makedirs(directory, exist_ok=True)
+        mid_alt = nlines // 2
+        mid_act = ncolumns // 2
+
+        # ----------------------------------------------------------------------
+        # 1. Slice ACT (Figure 7-51)
+        # ----------------------------------------------------------------------
+        # Only positive frequencies up to Nyquist (fn = 0.5)
+        act_pos = fnAct >= 0.0
+        x_act = fnAct[act_pos]
+
+        plt.figure(figsize=(9, 5.5))
+        plt.plot(x_act, Hdiff[mid_alt, act_pos], label='Diffraction MTF', linewidth=1.2)
+        plt.plot(x_act, Hdefoc[mid_alt, act_pos], label='Defocus MTF', linewidth=1.2)
+        plt.plot(x_act, Hwfe[mid_alt, act_pos], label='WFE Aberrations MTF', linewidth=1.2)
+        plt.plot(x_act, Hdet[mid_alt, act_pos], label='Detector MTF', linewidth=1.2)
+        plt.plot(x_act, Hsmear[mid_alt, act_pos], label='Smearing MTF', linewidth=1.2)
+        plt.plot(x_act, Hmotion[mid_alt, act_pos], label='Motion blur MTF', linewidth=1.2)
+        plt.plot(x_act, Hsys[mid_alt, act_pos], label='System MTF', color='black', linewidth=2.0)
+        plt.axvline(x=0.5, color='black', linestyle='--', linewidth=1.5, label='f Nyquist')
+
+        plt.title(f"System MTF - slice ACT ({band})")
+        plt.xlabel("Spatial frequencies f/(1/w) [-]")
+        plt.ylabel("MTF")
+        plt.xlim(0.0, 0.51)
+        plt.ylim(0.0, 1.05)
+        plt.grid(True)
+        plt.legend(loc='lower left', fontsize=8)
+        plt.tight_layout()
+        plt.savefig(os.path.join(directory, f"system_mtf_act_{band}.png"), dpi=300)
+        plt.close()
+
+        # ----------------------------------------------------------------------
+        # 2. Slice ALT (Figure 7-52)
+        # ----------------------------------------------------------------------
+        alt_pos = fnAlt >= 0.0
+        x_alt = fnAlt[alt_pos]
+
+        plt.figure(figsize=(9, 5.5))
+        plt.plot(x_alt, Hdiff[alt_pos, mid_act], label='Diffraction MTF', linewidth=1.2)
+        plt.plot(x_alt, Hdefoc[alt_pos, mid_act], label='Defocus MTF', linewidth=1.2)
+        plt.plot(x_alt, Hwfe[alt_pos, mid_act], label='WFE Aberrations MTF', linewidth=1.2)
+        plt.plot(x_alt, Hdet[alt_pos, mid_act], label='Detector MTF', linewidth=1.2)
+        plt.plot(x_alt, Hsmear[alt_pos, mid_act], label='Smearing MTF', linewidth=1.2)
+        plt.plot(x_alt, Hmotion[alt_pos, mid_act], label='Motion blur MTF', linewidth=1.2)
+        plt.plot(x_alt, Hsys[alt_pos, mid_act], label='System MTF', color='black', linewidth=2.0)
+        plt.axvline(x=0.5, color='black', linestyle='--', linewidth=1.5, label='f Nyquist')
+
+        plt.title(f"System MTF - slice ALT ({band})")
+        plt.xlabel("Spatial frequencies f/(1/w) [-]")
+        plt.ylabel("MTF")
+        plt.xlim(0.0, 0.51)
+        plt.ylim(0.0, 1.05)
+        plt.grid(True)
+        plt.legend(loc='lower left', fontsize=8)
+        plt.tight_layout()
+        plt.savefig(os.path.join(directory, f"system_mtf_alt_{band}.png"), dpi=300)
+        plt.close()
+
+        # ----------------------------------------------------------------------
+        # 3. 2D Map of System MTF (Figure 7-53)
+        # ----------------------------------------------------------------------
+        plt.figure(figsize=(8, 6))
+
+        # Hsys ya tiene el (0,0) en el centro, NO apliques fftshift aqui:
+        plt.imshow(Hsys, cmap='jet', aspect='auto', origin='lower')
+
+        plt.colorbar()
+        plt.title(f"System MTF for {band}")
+        plt.xlabel("ACT")
+        plt.ylabel("ALT")
+        plt.tight_layout()
+        plt.savefig(os.path.join(directory, f"system_mtf_2d_{band}.png"), dpi=300)
+        plt.close()
+
+        self.logger.info(f"MTF plots successfully saved to: {directory}")
+
+
 
 
