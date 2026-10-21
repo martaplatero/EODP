@@ -5,6 +5,7 @@ from l1c.src.initL1c import initL1c
 from common.io.writeToa import writeToa, readToa
 from common.io.readGeodetic import readGeodetic, getCorners
 import mgrs
+import sys
 import numpy as np
 from scipy.interpolate import bisplrep, bisplev
 import matplotlib.pyplot as plt
@@ -37,6 +38,8 @@ class l1c(initL1c):
             # Write output TOA
             # -------------------------------------------------------------------------------
             writeL1c(self.outdir, self.globalConfig.l1c_toa + band, lat_l1c, lon_l1c, toa_l1c)
+            if self.l1cConfig.plotL1cGrid:
+                self.plotL1cToa(lat, lon, toa, lat_l1c, lon_l1c, toa_l1c, band)
 
             self.logger.info("End of BAND " + band)
 
@@ -62,7 +65,31 @@ class l1c(initL1c):
         :param band: band
         :return: L1C radiances, L1C latitude and longitude in degrees
         '''
-        #TODO
+        # Interpolant relating the L1B geodetic coordinates to the TOA radiances
+        tck = bisplrep(lat, lon, toa)
+
+        # MGRS tiles covered by the L1B image (a set keeps only unique tiles)
+        m = mgrs.MGRS()
+        mgrs_tiles = set([])
+
+        for ii in range(toa.shape[0]):
+            for jj in range(toa.shape[1]):
+                mgrstile = str(m.toMGRS(lat[ii, jj], lon[ii, jj], inDegrees=True, MGRSPrecision=self.l1cConfig.mgrs_tile_precision))
+                mgrs_tiles.add(mgrstile)
+
+        # Sorted list so that the output order is reproducible between executions
+        mgrs_tiles = sorted(mgrs_tiles)
+
+        # Initialize vairiables
+        toa_l1c = np.zeros(len(mgrs_tiles))
+        lat_l1c = np.zeros(len(mgrs_tiles))
+        lon_l1c = np.zeros(len(mgrs_tiles))
+
+        # Geodetic coordinates of each MGRS tile and interpolated radiance
+        for i in range(len(mgrs_tiles)):
+            lat_l1c[i], lon_l1c[i] = m.toLatLon(mgrs_tiles[i], inDegrees=True)
+            toa_l1c[i] = bisplev(lat_l1c[i], lon_l1c[i], tck)
+
         return lat_l1c, lon_l1c, toa_l1c
 
     def checkSize(self, lat,toa):
@@ -73,4 +100,37 @@ class l1c(initL1c):
         :param toa: Radiance 2D matrix
         :return: NA
         '''
-        #TODO
+        if lat.shape != toa.shape:
+            self.logger.error("Size mismatch between the geodetic coordinates " + str(lat.shape) +
+                              " and the L1B TOA " + str(toa.shape) + ". Exiting.")
+            sys.exit(1)
+
+        self.logger.debug("Sizes of the geodetic coordinates and L1B TOA match: " + str(toa.shape))
+
+    def plotL1cToa(self, lat, lon, toa, lat_l1c, lon_l1c, toa_l1c, band):
+        '''
+        Plot the L1B footprint (irregular grid) and the L1C MGRS points (regular grid)
+        :param lat, lon, toa: L1B latitude, longitude and radiances (2D)
+        :param lat_l1c, lon_l1c, toa_l1c: L1C latitude, longitude and radiances (1D)
+        :param band: band
+        :return: NA
+        '''
+        fig = plt.figure(figsize=(20, 10))
+
+        # L1B footprint: the four corners of the image, closed
+        plt.plot(getCorners(lon), getCorners(lat), 'k-', linewidth=2, label='L1B')
+
+        # L1C MGRS grid points
+        plt.plot(lon_l1c, lat_l1c, 'r.', markersize=4, label='L1C MGRS')
+
+        plt.title('Projection on ground', fontsize=20)
+        plt.xlabel('Longitude [deg]', fontsize=16)
+        plt.ylabel('Latitude [deg]', fontsize=16)
+        plt.grid(True)
+        plt.legend(loc='upper right')
+        plt.axis('equal')
+
+        savestr = self.outdir + 'footprint_' + band + '.png'
+        plt.savefig(savestr, dpi=100)
+        plt.close(fig)
+        self.logger.info('Saved figure ' + savestr)
