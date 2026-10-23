@@ -7,7 +7,7 @@ from common.io.readGeodetic import readGeodetic, getCorners
 import mgrs
 import sys
 import numpy as np
-from scipy.interpolate import bisplrep, bisplev
+from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
 from common.io.l1cProduct import writeL1c
 from matplotlib import cm
@@ -65,9 +65,6 @@ class l1c(initL1c):
         :param band: band
         :return: L1C radiances, L1C latitude and longitude in degrees
         '''
-        # Interpolant relating the L1B geodetic coordinates to the TOA radiances
-        tck = bisplrep(lat, lon, toa)
-
         # MGRS tiles covered by the L1B image (a set keeps only unique tiles)
         m = mgrs.MGRS()
         mgrs_tiles = set([])
@@ -80,15 +77,18 @@ class l1c(initL1c):
         # Sorted list so that the output order is reproducible between executions
         mgrs_tiles = sorted(mgrs_tiles)
 
-        # Initialize vairiables
-        toa_l1c = np.zeros(len(mgrs_tiles))
+        # Initialize variables
         lat_l1c = np.zeros(len(mgrs_tiles))
         lon_l1c = np.zeros(len(mgrs_tiles))
 
-        # Geodetic coordinates of each MGRS tile and interpolated radiance
+        # MGRS tiles -> geodetic coordinates of the L1C grid points
         for i in range(len(mgrs_tiles)):
             lat_l1c[i], lon_l1c[i] = m.toLatLon(mgrs_tiles[i], inDegrees=True)
-            toa_l1c[i] = bisplev(lat_l1c[i], lon_l1c[i], tck)
+
+        # Interpolate the L1B radiances onto the L1C points
+        # (bisplrep crashes with the full E2E scene, ~500k points)
+        toa_l1c = griddata((lat.ravel(), lon.ravel()), toa.ravel(),
+                           (lat_l1c, lon_l1c), method='linear')
 
         return lat_l1c, lon_l1c, toa_l1c
 
